@@ -41,6 +41,8 @@ class JobPosting(db.Model):
     company_info = db.Column(db.Text)
     openings = db.Column(db.Integer)
     timestamp = db.Column(db.TIMESTAMP)
+    recruiter_id = db.Column(db.Integer, db.ForeignKey('recruiter.id'))
+    recruiter = db.relationship('Recruiter', backref=db.backref('jobpostings', lazy=True))
 
 class Application(db.Model):
     id = db.Column(db.Integer, primary_key=True)

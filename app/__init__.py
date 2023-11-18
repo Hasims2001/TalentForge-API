@@ -33,7 +33,7 @@ def authenticate_token():
         else:
             return fail('Token not found')
     except Exception as e:
-        return fail(str(e))
+        return fail(str(e)), 401
 
 
      
