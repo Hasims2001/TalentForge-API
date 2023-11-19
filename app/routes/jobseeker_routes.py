@@ -20,6 +20,7 @@ def register_jobseeker():
             email=data['email'],
             password=hashed,
             token="",
+            education=data['education'],
             skills=data['skills'],
             address=data['address'],
             city=data['city'],
@@ -47,7 +48,7 @@ def login_jobseeker():
                     user.token = token
                     db.session.commit()
                 
-                return successWithData('Login successfully!', {'token': user.token, 'email': user.email})                   
+                return successWithData('Login successfully!', user)                   
                     
             else:
                 return fail('Invalid email or password!'), 401
@@ -76,12 +77,27 @@ def get_all_jobseekers():
     except Exception as e:
         return fail(str(e)), 401
 
+# get
+@jobseeker_bp.route('/<int:id>', methods=['GET'])
+def get_jobseeker(id):
+    try:
+        jobseeker = db.session.get(JobSeeker, id)
+        result = {
+                "id": jobseeker.id,
+                "name": jobseeker.name,
+                "email": jobseeker.email,
+                "education": jobseeker.education,
+                "skills": jobseeker.skills,
+                "city": jobseeker.city,
+                "state": jobseeker.state
+            }
+
+        return successWithData(f"jobseeker id {id}",result)
+    except Exception as e:
+        return fail(str(e)), 401
+
 
 # update 
-def update_user(key, user, data):
-    if hasattr(user, key):
-        setattr(user, key, data[key])
-
 @jobseeker_bp.route('/update/<int:id>', methods=['PATCH', "PUT"])
 def update_jobseeker(id):
     try:
@@ -90,7 +106,7 @@ def update_jobseeker(id):
 
         if(user):
             for each in data:
-                update_user(each, user, data)
+                setattr(user, each, data[each])
 
             db.session.commit()
             return successWithData("Job Seeker updated successfully!", user)

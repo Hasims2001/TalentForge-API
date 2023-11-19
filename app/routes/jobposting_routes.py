@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request
 from app.models import JobPosting, db
 from app import success, fail, successWithData
 jobposting_bp = Blueprint('jobposting', __name__)
@@ -67,6 +67,34 @@ def get_all_jobpostings():
     except Exception as e:
         return fail(str(e)), 401
 
+# get
+@jobposting_bp.route("/<int:id>", methods=['GET'])
+def get_jobpostings(id):
+    try:
+        post = db.session.get(JobPosting, id)
+        result = {
+            "id": post.id,
+            "job_title": post['job_title'],
+            "description": post['description'],
+            "salary": post['salary'],
+            "skills": post['skills'],
+            "qualification": post['qualification'],
+            "location": post['location'],
+            "role_category": post['role_category'],
+            "department": post['department'],
+            "experience": post['experience'],
+            "required_skills": post['required_skills'],
+            "employment_type": post['employment_type'],
+            "company_name": post['company_name'],
+            "company_info": post['company_info'],
+            "openings": post['openings'],
+            "recruiter_id": post['recruiter_id']
+        }
+        return successWithData(f"job posting id {id}", result)
+    except Exception as e:
+        return fail(str(e)), 401
+
+# update
 @jobposting_bp.route('/update/<int:id>', methods=['PATCH', 'PUT'])
 def update_jobposting(id):
     try:

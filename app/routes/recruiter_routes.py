@@ -49,7 +49,7 @@ def login_recruiter():
                     user.token = token
                     db.session.commit()
                 
-                return successWithData('Login successfully!', {'token': user.token, 'email': user.email})                   
+                return successWithData('Login successfully!', user)                   
                     
             else:
                 return fail('Invalid email or password!'), 401
@@ -78,12 +78,25 @@ def get_all_recruiter():
     except Exception as e:
         return fail(str(e)), 401
 
-
+# get
+@recruiter_bp.route("/<int:id>", methods=['GET'])
+def get_recruiter(id):
+    try:
+        user = db.session.get(Recruiter, id)
+        result = {
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'company_name': user.company_name,
+            'company_address': user.company_address,
+            'city': user.city
+        }
+        return successWithData(f'Recruiter id {id}', result)
+    except Exception as e:
+        return fail(str(e)), 401
+    
+    
 # update
-def update_user(key, user, data):
-    if hasattr(user, key):
-        setattr(user, key, data[key])
-
 @recruiter_bp.route("/update/<int:id>", methods=['PATCH', 'PUT'])
 def udpate_recruiter(id):
     try:
@@ -91,7 +104,7 @@ def udpate_recruiter(id):
         data = request.get_json()
         if(user):
             for each in data:
-                update_user(each, user, data)
+                setattr(user, each, data[each])
 
             db.session.commit()
             return successWithData("Job Seeker updated successfully!", user)
