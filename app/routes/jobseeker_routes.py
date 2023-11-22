@@ -20,8 +20,7 @@ def register_jobseeker():
             email=data['email'],
             password=hashed,
             token="",
-            education=data['education'],
-            skills=data['skills'],
+            education=data['education'] if 'education' in data else "",
             address=data['address'],
             city=data['city'],
             state=data['state'],
@@ -40,20 +39,32 @@ def register_jobseeker():
 def login_jobseeker():
     try:
         data = request.get_json()
-        if 'email' in data:
-            user = JobSeeker.query.filter_by(email=data['email']).first()
-            if(user and pbkdf2_sha256.verify(data['password'], user.password)):
-                if(user.token == ""):
-                    token = jwt.encode({"user": {'email': user.email, 'role': "Jobseeker", 'id': user.id}}, os.getenv('SECRET_KEY'), algorithm=os.getenv('TOKEN_ALGO'))
-                    user.token = token
-                    db.session.commit()
-                
-                return successWithData('Login successfully!', user)                   
+        user = JobSeeker.query.filter_by(email=data['email']).first()
+        
+        if(user and pbkdf2_sha256.verify(data['password'], user.password)):
+            if(user.token == ""):
+                token = jwt.encode({"user": {'email': user.email, 'role': "Jobseeker", 'id': user.id}}, os.getenv('SECRET_KEY'), algorithm=os.getenv('TOKEN_ALGO'))  
+                user.token = token
+                db.session.commit()
+            
+            result = {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": "Jobseeker",
+                "token": user.token,
+                "address": user.address,
+                "city": user.city,
+                "state": user.state,
+                "pincode": user.pincode,
+
+            }
+
+            return successWithData('Login successfully!', result)                   
                     
-            else:
-                return fail('Invalid email or password!'), 401
         else:
-            return fail('email is require!'), 404
+            return fail('Invalid email or password!'), 401
+     
     except Exception as e:
         return fail(str(e)), 401
 
@@ -64,13 +75,13 @@ def get_all_jobseekers():
         jobseekers = JobSeeker.query.all()
         result = []
 
-        for jobseeker in jobseekers:
+        for each in jobseekers:
             result.append({
-                "id": jobseeker.id,
-                "name": jobseeker.name,
-                "email": jobseeker.email,
-                "skills": jobseeker.skills,
-                "city": jobseeker.city
+                "id": each.id,
+                "name": each.name,
+                "email": each.email,
+                "skills": each.skills,
+                "city": each.city
             })
 
         return successWithData("All jobseekers",result)
@@ -81,15 +92,15 @@ def get_all_jobseekers():
 @jobseeker_bp.route('/<int:id>', methods=['GET'])
 def get_jobseeker(id):
     try:
-        jobseeker = db.session.get(JobSeeker, id)
+        user = db.session.get(JobSeeker, id)
         result = {
-                "id": jobseeker.id,
-                "name": jobseeker.name,
-                "email": jobseeker.email,
-                "education": jobseeker.education,
-                "skills": jobseeker.skills,
-                "city": jobseeker.city,
-                "state": jobseeker.state
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "education": user.education,
+                "skills": user.skills,
+                "city": user.city,
+                "state": user.state
             }
 
         return successWithData(f"jobseeker id {id}",result)
