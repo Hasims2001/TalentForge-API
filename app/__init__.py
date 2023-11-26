@@ -29,7 +29,7 @@ def fail(msg):
     return jsonify({'issue': True, 'message': msg})
 
 def authenticate_token():
-    excluded_endpoints = [ "Documentation", 'jobseeker.register_jobseeker', "jobseeker.login_jobseeker", ""]
+    excluded_endpoints = [ "Documentation", 'jobseeker.register_jobseeker', "jobseeker.login_jobseeker", "recruiter.register_recruiter", "recruiter.login_recruiter"]
     if request.endpoint in excluded_endpoints:
         return 
     

@@ -1,7 +1,8 @@
 from flask import Blueprint, request
-from app.models import JobSeeker, db
+from app.models import JobSeeker, SkillSet,GraduateDegree,PostGraduateDegree,JobPosting, Application, db
 import jwt
 import os
+import json
 from passlib.hash import pbkdf2_sha256
 from app import success, fail, successWithData
 from dotenv import load_dotenv
@@ -20,6 +21,7 @@ def register_jobseeker():
             email=data['email'],
             password=hashed,
             token="",
+            phone= data['phone'],
             education=data['education'] if 'education' in data else "",
             address=data['address'],
             city=data['city'],
@@ -53,6 +55,7 @@ def login_jobseeker():
                 "email": user.email,
                 "role": "Jobseeker",
                 "token": user.token,
+                "phone": user.phone,
                 "address": user.address,
                 "city": user.city,
                 "state": user.state,
@@ -76,12 +79,19 @@ def get_all_jobseekers():
         result = []
 
         for each in jobseekers:
+            user_skills = [skill.skills for skill in each.skills]
             result.append({
                 "id": each.id,
                 "name": each.name,
                 "email": each.email,
-                "skills": each.skills,
-                "city": each.city
+                "graduate": each.graduate,
+                "postgraduate": each.postgraduate,
+                "education": each.education,
+                "skills": user_skills,
+                "city": each.city,
+                "state": each.state,
+                'pincode': each.pincode
+
             })
 
         return successWithData("All jobseekers",result)
@@ -93,17 +103,25 @@ def get_all_jobseekers():
 def get_jobseeker(id):
     try:
         user = db.session.get(JobSeeker, id)
-        result = {
-                "id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "education": user.education,
-                "skills": user.skills,
-                "city": user.city,
-                "state": user.state
-            }
+        if(user):
+            user_skills = [skill.skills for skill in user.skills]
+            result = {
+                    "id": user.id,
+                    "name": user.name,
+                    "email": user.email,
+                    "education": user.education,
+                    "graduate": user.graduate,
+                    "postgraduate": user.postgraduate,
+                    "user_skills": user_skills,
+                    "phone": user.phone,
+                    "city": user.city,
+                    "state": user.state,
+                    'pincode': user.pincode
+                }
 
-        return successWithData(f"jobseeker id {id}",result)
+            return successWithData(f"jobseeker id {id}",result)
+        else:
+            return fail('User not found!'), 404
     except Exception as e:
         return fail(str(e)), 401
 
@@ -114,18 +132,70 @@ def update_jobseeker(id):
     try:
         user = db.session.get(JobSeeker, id)
         data = request.get_json()
-
+        
         if(user):
-            for each in data:
-                setattr(user, each, data[each])
+            for key, value in data.items():
+                if key == "skills":
+                    update_user_skills(user, value)
+                elif key == "graduate":
+                    update_user_graduate(user, value)
+                elif key == "postgraduate":
+                    update_user_postgraduate(user, value)
+                else:
+                    setattr(user, key, value)
 
+            
             db.session.commit()
-            return successWithData("Job Seeker updated successfully!", user)
+            user_skills = [skill.skills for skill in user.skills]
+            user_graduate = [degree.degree for degree in user.graduate]
+            user_postgraduate = [degree.degree for degree in user.postgraduate]
+            result = {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "education": user.education,
+                "graduate": user_graduate,
+                "postgraduate": user_postgraduate,
+                "skills": user_skills,
+                "phone": user.phone,
+                "city": user.city,
+                "state": user.state,
+                "pincode": user.pincode
+            }
+            return successWithData("Job Seeker updated successfully!", result)
         else:
             return fail("User not found!"), 404
            
     except Exception as e:
         return fail(str(e)), 401
+
+def update_user_skills(user, new_skills):
+    user.skills = []
+
+    for skill_name in new_skills:
+        skill = SkillSet.query.filter_by(skills=skill_name).first()
+        if skill is None:
+            skill = SkillSet(skills=skill_name)
+            db.session.add(skill)
+        user.skills.append(skill)
+
+
+def update_user_graduate(user, new_graduate):
+    degree_name = GraduateDegree.query.filter_by(degree=new_graduate).first()
+    
+    if degree_name is None:
+        degree_name = GraduateDegree(degree=new_graduate)
+        db.session.add(degree_name)
+    user.graduate.append(degree_name)
+    # setattr(user, "graduate", degree_name)
+    
+    
+def update_user_postgraduate(user, new_postgraduate):
+    degree_name = PostGraduateDegree.query.filter_by(degree=new_postgraduate).first()
+    if degree_name is None:
+        degree_name = PostGraduateDegree(degree=new_postgraduate)
+        db.session.add(degree_name)
+    user.postgraduate.append(degree_name)
 
 
 # delete 
@@ -139,3 +209,43 @@ def delete_jobseeker(id):
             return success('User deleted successfully!')
     except Exception as e:
         return fail(str(e)), 401
+    
+# apply on job post
+@jobseeker_bp.route('/apply', methods=['POST'])
+def apply_for_job():
+    try:
+        data = request.get_json()
+
+        job_seeker_id = data.get('job_seeker_id')
+        job_posting_id = data.get('job_posting_id')
+
+        if not job_seeker_id or not job_posting_id:
+            return fail("Job Seeker ID and Job Posting ID are required"), 400
+
+        job_seeker = JobSeeker.query.get(job_seeker_id)
+        job_posting = JobPosting.query.get(job_posting_id)
+
+        if not job_seeker or not job_posting:
+            return fail("Job Seeker or Job Posting not found"), 404
+
+        existing_application = Application.query.filter_by(
+            job_seeker_id=job_seeker.id,
+            job_posting_id=job_posting.id
+        ).first()
+
+        if existing_application:
+            return fail("Job Seeker has already applied for this job"), 400
+
+        application = Application(
+            status=data.get('status', 'Pending'), 
+            job_seeker=job_seeker,
+            job_posting=job_posting
+        )
+
+        db.session.add(application)
+        db.session.commit()
+
+        return success("Application submitted successfully!")
+
+    except Exception as e:
+        return fail(str(e)), 500

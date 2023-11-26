@@ -1,5 +1,5 @@
 from flask import Blueprint, request
-from app.models import Recruiter, db
+from app.models import Recruiter,JobPosting,Application, db
 import jwt
 import os
 from passlib.hash import pbkdf2_sha256
@@ -8,7 +8,21 @@ from dotenv import load_dotenv
 recruiter_bp = Blueprint('recruiter', __name__)
 load_dotenv()
 
-
+# model
+    # id = db.Column(db.Integer, primary_key=True)
+    # name = db.Column(db.String(255))
+    # email = db.Column(db.String(255), unique=True)
+    # password = db.Column(db.String(255))
+    # token = db.Column(db.String(255))
+    # company_name = db.Column(db.String(255))
+    # current_jobrole = db.Column(db.String(255))
+    # company_description = db.Column(db.Text)
+    # founded = db.Column(db.Integer)
+    # website = db.Column(db.Text)
+    # company_size = db.Column(db.String(255))
+    # city = db.Column(db.String(255))
+    # state = db.Column(db.String(255))
+    # job_postings = db.relationship('JobPosting', backref='recruiter', lazy=True)
 
 # register
 @recruiter_bp.route("/register", methods=['POST'])
@@ -22,10 +36,13 @@ def register_recruiter():
             password=hashed,
             token="",
             company_name=data['company_name'],
-            company_address=data['company_address'],
+            current_jobrole=data['current_jobrole'],
+            company_description= data.get('company_description', ""),
+            founded= data.get("founded", 0000),
+            website=data.get('website', ""),
+            company_size=data.get("company_size", ""),
             city=data['city'],
             state=data['state'],
-            pincode=data['pincode']
         )
 
         db.session.add(new_user)
@@ -49,7 +66,23 @@ def login_recruiter():
                     user.token = token
                     db.session.commit()
                 
-                return successWithData('Login successfully!', user)                   
+                result = {
+                    "id": user.id,
+                    "name": user.name,
+                    "email": user.email,
+                    "role": "Recruiter",
+                    "token": user.token,
+                    "company_name": user.company_name,
+                    "current_jobrole": user.current_jobrole,
+                    "company_description": user.company_description,
+                    "founded": user.founded,
+                    "website": user.website,
+                    "company_size": user.company_size,
+                    "city": user.city,
+                    "state": user.state,
+
+                }
+                return successWithData('Login successfully!', result)                   
                     
             else:
                 return fail('Invalid email or password!'), 401
@@ -71,8 +104,13 @@ def get_all_recruiter():
                 "name": each.name,
                 "email": each.email,
                 "company_name": each.company_name,
-                "company_address": each.company_address,
-                "city": each.city
+                "current_jobrole": each.current_jobrole,
+                "company_description": each.company_description,
+                "founded": each.founded,
+                "website": each.website,
+                "company_size": each.company_size,
+                "city": each.city,
+                "state": each.state,
             })
         return successWithData('All Recruiter', result)
     except Exception as e:
@@ -88,8 +126,13 @@ def get_recruiter(id):
             'name': user.name,
             'email': user.email,
             'company_name': user.company_name,
-            'company_address': user.company_address,
-            'city': user.city
+            'current_jobrole': user.current_jobrole,
+            'company_description': user.company_description,
+            'founded': user.founded,
+            'website': user.website,
+            'company_size': user.company_size,
+            'city': user.city,
+            "state": user.state,
         }
         return successWithData(f'Recruiter id {id}', result)
     except Exception as e:
@@ -107,7 +150,20 @@ def udpate_recruiter(id):
                 setattr(user, each, data[each])
 
             db.session.commit()
-            return successWithData("Job Seeker updated successfully!", user)
+            result = {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email,
+                'company_name': user.company_name,
+                'current_jobrole': user.current_jobrole,
+                'company_description': user.company_description,
+                'founded': user.founded,
+                'website': user.website,
+                'company_size': user.company_size,
+                'city': user.city,
+                "state": user.state,
+            }
+            return successWithData("Job Seeker updated successfully!", result)
         else:
             return fail('User not found!'), 404
     except Exception as e:
@@ -127,3 +183,39 @@ def delete_recruiter(id):
             return fail("User not found!"), 404
     except Exception as e:
         return fail(str(e)), 401
+    
+
+# get all applications for single job post
+@recruiter_bp.route('/applications/<int:job_posting_id>', methods=['GET'])
+def get_job_posting_applications(job_posting_id):
+    try:
+        job_posting = JobPosting.query.get(job_posting_id)
+
+        if not job_posting:
+            return fail("Job Posting not found"), 404
+
+        applications = Application.query.filter_by(job_posting_id=job_posting.id).all()
+
+        application_data = []
+        for application in applications:
+            application_data.append({
+                "id": application.id,
+                "status": application.status,
+                "timestamp": application.timestamp,
+                "job_seeker": {
+                    "id": application.job_seeker.id,
+                    "name": application.job_seeker.name,
+                    "email": application.job_seeker.email,
+                    "city": application.job_seeker.city,
+                    "state": application.job_seeker.state,
+                    "user_skills": application.job_seeker.user_skills,
+                    "education": application.job_seeker.education,
+                    "graduate": application.job_seeker.graduate,
+                    "postgraduate": application.job_seeker.postgraduate,
+                }
+            })
+
+        return successWithData("Applications retrieved successfully!", application_data)
+
+    except Exception as e:
+        return fail(str(e)), 500

@@ -1,5 +1,5 @@
 from flask import Blueprint, request
-from app.models import JobPosting, db
+from app.models import JobPosting,Application, db
 from app import success, fail, successWithData
 jobposting_bp = Blueprint('jobposting', __name__)
 
@@ -13,16 +13,15 @@ def create_jobposting():
             job_title=data['job_title'],
             description=data['description'],
             salary=data['salary'],
-            skills=data['skills'],
-            qualification=data['qualification'],
+            graduation=data.get('graduation', ""),
+            postgraduation=data.get('postgraduation', ''),
             location=data['location'],
             role_category=data['role_category'],
             department=data['department'],
             experience=data['experience'],
             required_skills=data['required_skills'],
+            prefered_skills=data['prefered_skills'],
             employment_type=data['employment_type'],
-            company_name=data['company_name'],
-            company_info=data['company_info'],
             openings=data['openings'],
             recruiter_id=user.id
         )
@@ -35,31 +34,29 @@ def create_jobposting():
     except Exception as e:
         return fail(str(e)), 401
 
-# get all 
+# get all for job seeker
 @jobposting_bp.route('/all', methods=['GET'])
 def get_all_jobpostings():
     try:
         jobpostings = JobPosting.query.all()
         result = []
-        user = request.user
         for jobposting in jobpostings:
             result.append({
                 "id": jobposting.id,
                 "job_title": jobposting['job_title'],
                 "description": jobposting['description'],
                 "salary": jobposting['salary'],
-                "skills": jobposting['skills'],
-                "qualification": jobposting['qualification'],
+                "graduation":jobposting['graduation'],
+                "postgraduation":jobposting['postgraduation'],
                 "location": jobposting['location'],
                 "role_category": jobposting['role_category'],
                 "department": jobposting['department'],
                 "experience": jobposting['experience'],
                 "required_skills": jobposting['required_skills'],
+                "prefered_skills": jobposting['prefered_skills'],
                 "employment_type": jobposting['employment_type'],
-                "company_name": jobposting['company_name'],
-                "company_info": jobposting['company_info'],
                 "openings": jobposting['openings'],
-                "recruiter_id": user.id
+                "recruiter_id": jobposting['recruiter_id']
             })
 
         return successWithData("all jobs", result)
@@ -67,7 +64,7 @@ def get_all_jobpostings():
     except Exception as e:
         return fail(str(e)), 401
 
-# get
+# get for job seeker
 @jobposting_bp.route("/<int:id>", methods=['GET'])
 def get_jobpostings(id):
     try:
@@ -77,16 +74,15 @@ def get_jobpostings(id):
             "job_title": post['job_title'],
             "description": post['description'],
             "salary": post['salary'],
-            "skills": post['skills'],
-            "qualification": post['qualification'],
+            "graduation":post['graduation'],
+            "postgraduation":post['postgraduation'],
             "location": post['location'],
             "role_category": post['role_category'],
             "department": post['department'],
             "experience": post['experience'],
             "required_skills": post['required_skills'],
+            "prefered_skills": post['prefered_skills'],
             "employment_type": post['employment_type'],
-            "company_name": post['company_name'],
-            "company_info": post['company_info'],
             "openings": post['openings'],
             "recruiter_id": post['recruiter_id']
         }
@@ -127,3 +123,4 @@ def delete_jobposting(id):
 
     except Exception as e:
         return fail(str(e)), 401
+
