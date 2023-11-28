@@ -14,7 +14,7 @@ def create_jobposting():
             description=data['description'],
             salary=data['salary'],
             graduation=data.get('graduation', ""),
-            postgraduation=data.get('postgraduation', ''),
+            postgraduation=data.get('postgraduation', ""),
             location=data['location'],
             role_category=data['role_category'],
             department=data['department'],
@@ -23,40 +23,58 @@ def create_jobposting():
             prefered_skills=data['prefered_skills'],
             employment_type=data['employment_type'],
             openings=data['openings'],
-            recruiter_id=user.id
+            recruiter_id=user['id']
         )
 
         db.session.add(new_jobposting)
         db.session.commit()
-
-        return successWithData("Job post created successfully!", new_jobposting)
+        result = {
+            "id": new_jobposting.id,
+            "job_title": new_jobposting.job_title,
+            "description": new_jobposting.description,
+            "salary": new_jobposting.salary,
+            "graduation":new_jobposting.graduation,
+            "postgraduation":new_jobposting.postgraduation,
+            "location": new_jobposting.location,
+            "role_category": new_jobposting.role_category,
+            "department": new_jobposting.department,
+            "experience": new_jobposting.experience,
+            "required_skills": new_jobposting.required_skills,
+            "prefered_skills": new_jobposting.prefered_skills,
+            "employment_type": new_jobposting.employment_type,
+            "openings": new_jobposting.openings,
+            "recruiter_id": new_jobposting.recruiter_id
+        }
+        return successWithData("Job post created successfully!", result)
 
     except Exception as e:
         return fail(str(e)), 401
 
-# get all for job seeker
-@jobposting_bp.route('/all', methods=['GET'])
+# get all except applied
+@jobposting_bp.route('/all/jobs', methods=['GET'])
 def get_all_jobpostings():
     try:
-        jobpostings = JobPosting.query.all()
+        user_id = request.user['id']
+        jobpostings = JobPosting.query.filter(
+            ~JobPosting.applications.any(Application.job_seeker_id == user_id)).all()
         result = []
         for jobposting in jobpostings:
             result.append({
                 "id": jobposting.id,
-                "job_title": jobposting['job_title'],
-                "description": jobposting['description'],
-                "salary": jobposting['salary'],
-                "graduation":jobposting['graduation'],
-                "postgraduation":jobposting['postgraduation'],
-                "location": jobposting['location'],
-                "role_category": jobposting['role_category'],
-                "department": jobposting['department'],
-                "experience": jobposting['experience'],
-                "required_skills": jobposting['required_skills'],
-                "prefered_skills": jobposting['prefered_skills'],
-                "employment_type": jobposting['employment_type'],
-                "openings": jobposting['openings'],
-                "recruiter_id": jobposting['recruiter_id']
+                "job_title": jobposting.job_title,
+                "description": jobposting.description,
+                "salary": jobposting.salary,
+                "graduation":jobposting.graduation,
+                "postgraduation":jobposting.postgraduation,
+                "location": jobposting.location,
+                "role_category": jobposting.role_category,
+                "department": jobposting.department,
+                "experience": jobposting.experience,
+                "required_skills": jobposting.required_skills,
+                "prefered_skills": jobposting.prefered_skills,
+                "employment_type": jobposting.employment_type,
+                "openings": jobposting.openings,
+                "recruiter_id": jobposting.recruiter_id
             })
 
         return successWithData("all jobs", result)
@@ -64,27 +82,58 @@ def get_all_jobpostings():
     except Exception as e:
         return fail(str(e)), 401
 
-# get for job seeker
+
+# get all for recruiter
+@jobposting_bp.route("/all/<int:id>", methods=['GET'])
+def get_all_jobpostings_for_recruiter(id):
+    try:
+        jobpostings = JobPosting.query.filter_by(recruiter_id=id).all()
+        result = []
+        for jobposting in jobpostings:
+            result.append({
+                "id": jobposting.id,
+                "job_title": jobposting.job_title,
+                "description": jobposting.description,
+                "salary": jobposting.salary,
+                "graduation":jobposting.graduation,
+                "postgraduation":jobposting.postgraduation,
+                "location": jobposting.location,
+                "role_category": jobposting.role_category,
+                "department": jobposting.department,
+                "experience": jobposting.experience,
+                "required_skills": jobposting.required_skills,
+                "prefered_skills": jobposting.prefered_skills,
+                "employment_type": jobposting.employment_type,
+                "openings": jobposting.openings,
+                "recruiter_id": jobposting.recruiter_id
+            })
+
+        return successWithData(f"all jobs related to recruiter id {id}", result)
+    except Exception as e:
+        return fail(str(e)), 401
+
+
+# get all for job seeker 
 @jobposting_bp.route("/<int:id>", methods=['GET'])
 def get_jobpostings(id):
     try:
-        post = db.session.get(JobPosting, id)
+        jobposting = db.session.get(JobPosting, id)
         result = {
-            "id": post.id,
-            "job_title": post['job_title'],
-            "description": post['description'],
-            "salary": post['salary'],
-            "graduation":post['graduation'],
-            "postgraduation":post['postgraduation'],
-            "location": post['location'],
-            "role_category": post['role_category'],
-            "department": post['department'],
-            "experience": post['experience'],
-            "required_skills": post['required_skills'],
-            "prefered_skills": post['prefered_skills'],
-            "employment_type": post['employment_type'],
-            "openings": post['openings'],
-            "recruiter_id": post['recruiter_id']
+                "id": jobposting.id,
+                "job_title": jobposting.job_title,
+                "description": jobposting.description,
+                "salary": jobposting.salary,
+                "graduation":jobposting.graduation,
+                "postgraduation":jobposting.postgraduation,
+                "location": jobposting.location,
+                "role_category": jobposting.role_category,
+                "department": jobposting.department,
+                "experience": jobposting.experience,
+                "required_skills": jobposting.required_skills,
+                "prefered_skills": jobposting.prefered_skills,
+                "employment_type": jobposting.employment_type,
+                "openings": jobposting.openings,
+                "recruiter_id": jobposting.recruiter_id
         }
         return successWithData(f"job posting id {id}", result)
     except Exception as e:
@@ -96,13 +145,29 @@ def update_jobposting(id):
     try:
         jobposting = db.session.get(JobPosting, id)
         data = request.get_json()
-
         if jobposting:
             for key in data:
                 setattr(jobposting, key, data[key])
 
             db.session.commit()
-            return successWithData('Job post updated successfully!', jobposting)
+            result = {
+                "id": jobposting.id,
+                "job_title": jobposting.job_title,
+                "description": jobposting.description,
+                "salary": jobposting.salary,
+                "graduation":jobposting.graduation,
+                "postgraduation":jobposting.postgraduation,
+                "location": jobposting.location,
+                "role_category": jobposting.role_category,
+                "department": jobposting.department,
+                "experience": jobposting.experience,
+                "required_skills": jobposting.required_skills,
+                "prefered_skills": jobposting.prefered_skills,
+                "employment_type": jobposting.employment_type,
+                "openings": jobposting.openings,
+                "recruiter_id": jobposting.recruiter_id
+            }
+            return successWithData('Job post updated successfully!', result)
         else:
             return fail("Job post not found!"), 404
 

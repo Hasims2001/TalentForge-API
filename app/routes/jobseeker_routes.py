@@ -141,6 +141,9 @@ def update_jobseeker(id):
                     update_user_graduate(user, value)
                 elif key == "postgraduate":
                     update_user_postgraduate(user, value)
+                elif key == "password":
+                    hashed = pbkdf2_sha256.using(rounds=10, salt_size=16).hash(value)
+                    setattr(user, key, hashed)
                 else:
                     setattr(user, key, value)
 
@@ -187,7 +190,6 @@ def update_user_graduate(user, new_graduate):
         degree_name = GraduateDegree(degree=new_graduate)
         db.session.add(degree_name)
     user.graduate.append(degree_name)
-    # setattr(user, "graduate", degree_name)
     
     
 def update_user_postgraduate(user, new_postgraduate):
@@ -210,42 +212,3 @@ def delete_jobseeker(id):
     except Exception as e:
         return fail(str(e)), 401
     
-# apply on job post
-@jobseeker_bp.route('/apply', methods=['POST'])
-def apply_for_job():
-    try:
-        data = request.get_json()
-
-        job_seeker_id = data.get('job_seeker_id')
-        job_posting_id = data.get('job_posting_id')
-
-        if not job_seeker_id or not job_posting_id:
-            return fail("Job Seeker ID and Job Posting ID are required"), 400
-
-        job_seeker = JobSeeker.query.get(job_seeker_id)
-        job_posting = JobPosting.query.get(job_posting_id)
-
-        if not job_seeker or not job_posting:
-            return fail("Job Seeker or Job Posting not found"), 404
-
-        existing_application = Application.query.filter_by(
-            job_seeker_id=job_seeker.id,
-            job_posting_id=job_posting.id
-        ).first()
-
-        if existing_application:
-            return fail("Job Seeker has already applied for this job"), 400
-
-        application = Application(
-            status=data.get('status', 'Pending'), 
-            job_seeker=job_seeker,
-            job_posting=job_posting
-        )
-
-        db.session.add(application)
-        db.session.commit()
-
-        return success("Application submitted successfully!")
-
-    except Exception as e:
-        return fail(str(e)), 500

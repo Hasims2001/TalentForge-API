@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, jsonify
 from app.models import Recruiter,JobPosting,Application, db
 import jwt
 import os
@@ -198,20 +198,28 @@ def get_job_posting_applications(job_posting_id):
 
         application_data = []
         for application in applications:
+            user_skills = application.job_seeker.skills
+            user_skills = [skill.skills for skill in user_skills]
+            temp_graduate = application.job_seeker.graduate
+            user_graduate = [degree.degree for degree in temp_graduate]
+            temp_postgraduate = application.job_seeker.postgraduate
+            user_postgraduate = [degree.degree for degree in temp_postgraduate]
+
             application_data.append({
                 "id": application.id,
                 "status": application.status,
                 "timestamp": application.timestamp,
+                "job_posting_id": application.job_posting_id,
                 "job_seeker": {
                     "id": application.job_seeker.id,
                     "name": application.job_seeker.name,
                     "email": application.job_seeker.email,
                     "city": application.job_seeker.city,
                     "state": application.job_seeker.state,
-                    "user_skills": application.job_seeker.user_skills,
+                    "user_skills": user_skills,
                     "education": application.job_seeker.education,
-                    "graduate": application.job_seeker.graduate,
-                    "postgraduate": application.job_seeker.postgraduate,
+                    "graduate": user_graduate,
+                    "postgraduate": user_postgraduate,
                 }
             })
 
@@ -219,3 +227,47 @@ def get_job_posting_applications(job_posting_id):
 
     except Exception as e:
         return fail(str(e)), 500
+    
+# update application status of single job post
+@recruiter_bp.route("/applications/<int:application_id>", methods=['PATCH', 'PUT'])
+def udpate_application_status(application_id):
+    try:
+        application = Application.query.get(application_id)
+        data = request.get_json()
+
+        if application:
+            for key in data:
+                setattr(application, key, data[key])
+
+            db.session.commit()
+            user_skills = application.job_seeker.skills
+            user_skills = [skill.skills for skill in user_skills]
+            temp_graduate = application.job_seeker.graduate
+            user_graduate = [degree.degree for degree in temp_graduate]
+            temp_postgraduate = application.job_seeker.postgraduate
+            user_postgraduate = [degree.degree for degree in temp_postgraduate]
+            result = {
+                    "id": application.id,
+                    "status": application.status,
+                    "timestamp": application.timestamp,
+                    "job_posting_id": application.job_posting_id,
+                    "job_seeker": {
+                        "id": application.job_seeker.id,
+                        "name": application.job_seeker.name,
+                        "email": application.job_seeker.email,
+                        "city": application.job_seeker.city,
+                        "state": application.job_seeker.state,
+                        "user_skills": user_skills,
+                        "education": application.job_seeker.education,
+                        "graduate": user_graduate,
+                        "postgraduate": user_postgraduate,
+                    }
+            }
+            return successWithData("Application status updated successfully", result)
+        else:
+            return fail("Application not found!"), 404
+    except Exception as e:
+        return fail(str(e)), 401
+
+
+   
