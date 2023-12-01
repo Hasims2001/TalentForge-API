@@ -156,6 +156,7 @@ def udpate_recruiter(id):
                 'email': user.email,
                 'company_name': user.company_name,
                 'current_jobrole': user.current_jobrole,
+                "company_logo": user.company_logo,
                 'company_description': user.company_description,
                 'founded': user.founded,
                 'website': user.website,

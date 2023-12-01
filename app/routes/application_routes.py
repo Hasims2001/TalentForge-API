@@ -1,5 +1,4 @@
 from flask import Blueprint,  request
-from sqlalchemy.orm import joinedload
 from app.models import Application,JobSeeker,JobPosting, db
 from app import success, fail, successWithData
 application_bp = Blueprint('application', __name__)
@@ -112,6 +111,14 @@ def get_all_applications_of_user():
                     "prefered_skills": application.job_posting.prefered_skills,
                     "employment_type": application.job_posting.employment_type,
                     "openings": application.job_posting.openings,
+                    "recruiter": {
+                        "id": application.job_posting.recruiter.id,
+                        "name": application.job_posting.recruiter.name,
+                        "company_name": application.job_posting.recruiter.company_name,
+                        "company_logo": application.job_posting.recruiter.company_logo,
+                        "company_description": application.job_posting.recruiter.company_description,
+                        "website": application.job_posting.recruiter.website
+                    }
                     
                 }
             })

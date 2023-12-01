@@ -50,13 +50,45 @@ def create_jobposting():
     except Exception as e:
         return fail(str(e)), 401
 
-# get all except applied
+# get all except applied by jobseeker
 @jobposting_bp.route('/all/jobs', methods=['GET'])
 def get_all_jobpostings():
     try:
         user_id = request.user['id']
         jobpostings = JobPosting.query.filter(
             ~JobPosting.applications.any(Application.job_seeker_id == user_id)).all()
+        result = []
+        for jobposting in jobpostings:
+            result.append({
+                "id": jobposting.id,
+                "job_title": jobposting.job_title,
+                "description": jobposting.description,
+                "salary": jobposting.salary,
+                "graduation":jobposting.graduation,
+                "postgraduation":jobposting.postgraduation,
+                "location": jobposting.location,
+                "role_category": jobposting.role_category,
+                "department": jobposting.department,
+                "experience": jobposting.experience,
+                "required_skills": jobposting.required_skills,
+                "prefered_skills": jobposting.prefered_skills,
+                "employment_type": jobposting.employment_type,
+                "openings": jobposting.openings,
+                "recruiter_id": jobposting.recruiter_id
+            })
+
+        return successWithData("all jobs", result)
+
+    except Exception as e:
+        return fail(str(e)), 401
+
+# get all except applied by category
+@jobposting_bp.route('/all/jobs/<string:category>', methods=['GET'])
+def get_all_jobpostings_by_category(category):
+    try:
+        user_id = request.user['id']
+        jobpostings = JobPosting.query.filter((JobPosting.role_category == category) & ~JobPosting.applications.any(Application.job_seeker_id == user_id)).all()
+
         result = []
         for jobposting in jobpostings:
             result.append({
@@ -113,7 +145,7 @@ def get_all_jobpostings_for_recruiter(id):
         return fail(str(e)), 401
 
 
-# get all for job seeker 
+# get single for job seeker 
 @jobposting_bp.route("/<int:id>", methods=['GET'])
 def get_jobpostings(id):
     try:

@@ -2,7 +2,6 @@ from flask import Blueprint, request
 from app.models import JobSeeker, SkillSet,GraduateDegree,PostGraduateDegree,JobPosting, Application, db
 import jwt
 import os
-import json
 from passlib.hash import pbkdf2_sha256
 from app import success, fail, successWithData
 from dotenv import load_dotenv
@@ -22,7 +21,8 @@ def register_jobseeker():
             password=hashed,
             token="",
             phone= data['phone'],
-            education=data['education'] if 'education' in data else "",
+            education=data['education'] if 'education' in data else "\n\n\n",
+            experience=data['experience'] if 'experience' in data else "\n\n\n\n",
             address=data['address'],
             city=data['city'],
             state=data['state'],
@@ -48,7 +48,8 @@ def login_jobseeker():
                 token = jwt.encode({"user": {'email': user.email, 'role': "Jobseeker", 'id': user.id}}, os.getenv('SECRET_KEY'), algorithm=os.getenv('TOKEN_ALGO'))  
                 user.token = token
                 db.session.commit()
-            
+
+            user_skills = [skill.skills for skill in user.skills]
             result = {
                 "id": user.id,
                 "name": user.name,
@@ -57,6 +58,9 @@ def login_jobseeker():
                 "token": user.token,
                 "phone": user.phone,
                 "address": user.address,
+                "skills": user_skills,
+                "education": user.education,
+                "experience": user.experience,
                 "city": user.city,
                 "state": user.state,
                 "pincode": user.pincode,
@@ -88,6 +92,7 @@ def get_all_jobseekers():
                 "postgraduate": each.postgraduate,
                 "education": each.education,
                 "skills": user_skills,
+                "experience": each.experience,
                 "city": each.city,
                 "state": each.state,
                 'pincode': each.pincode
@@ -113,6 +118,7 @@ def get_jobseeker(id):
                     "graduate": user.graduate,
                     "postgraduate": user.postgraduate,
                     "user_skills": user_skills,
+                    "experience": user.experience,
                     "phone": user.phone,
                     "city": user.city,
                     "state": user.state,
@@ -160,6 +166,7 @@ def update_jobseeker(id):
                 "graduate": user_graduate,
                 "postgraduate": user_postgraduate,
                 "skills": user_skills,
+                "experience": user.experience,
                 "phone": user.phone,
                 "city": user.city,
                 "state": user.state,
