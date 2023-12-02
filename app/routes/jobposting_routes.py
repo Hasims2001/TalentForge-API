@@ -1,6 +1,9 @@
 from flask import Blueprint, request
-from app.models import JobPosting,Application, db
+from app.models import JobPosting,Application,SkillSet, db
 from app import success, fail, successWithData
+from openai import OpenAI
+from sqlalchemy import or_
+import os, json
 jobposting_bp = Blueprint('jobposting', __name__)
 
 # create a new 
@@ -221,3 +224,164 @@ def delete_jobposting(id):
     except Exception as e:
         return fail(str(e)), 401
 
+openai_api_key = os.getenv("API_KEY") 
+client = OpenAI(api_key=openai_api_key)
+# send recommmended job posts
+def send_recommended_job_posts(skills):
+    skills = skills.split(",")
+    temp = []
+    for each in skills:
+        temp.append(each.strip())
+    skills =  temp
+
+    print("skills",skills)
+    try:
+       
+        recommended_jobpostings = JobPosting.query.filter(or_(*[JobPosting.required_skills.like(f"%{skill}%") for skill in skills])).all()
+
+        result = []
+        
+        if(recommended_jobpostings):
+            for jobposting in recommended_jobpostings:
+                    result.append({
+                        "id": jobposting.id,
+                        "job_title": jobposting.job_title,
+                        "description": jobposting.description,
+                        "salary": jobposting.salary,
+                        "graduation":jobposting.graduation,
+                        "postgraduation":jobposting.postgraduation,
+                        "location": jobposting.location,
+                        "role_category": jobposting.role_category,
+                        "department": jobposting.department,
+                        "experience": jobposting.experience,
+                        "required_skills": jobposting.required_skills,
+                        "prefered_skills": jobposting.prefered_skills,
+                        "employment_type": jobposting.employment_type,
+                        "openings": jobposting.openings,
+                        "recruiter_id": jobposting.recruiter_id
+                    })
+            return result
+            
+        else:
+            return "sorry, but there is no any jobs are available!"
+    except Exception as e:
+        return str(e)
+
+def serialize_choice(choice):
+    output = []
+    for each in choice.message:
+         output.append(serialize_chat_message(each))
+   
+    return output
+
+def serialize_chat_message(chat_message):
+    obj = {
+        chat_message[0]: chat_message[1],
+    }
+    return obj
+
+@jobposting_bp.route("/search/<string:title>", methods=['GET'])
+def getJobByTitle(title):
+    try:
+        filtered_job_posts = JobPosting.query.filter(or_(JobPosting.job_title.ilike(f"%{title}%"))).all()
+        result = []
+        if(filtered_job_posts):
+            for jobposting in filtered_job_posts:
+                    result.append({
+                        "id": jobposting.id,
+                        "job_title": jobposting.job_title,
+                        "description": jobposting.description,
+                        "salary": jobposting.salary,
+                        "graduation":jobposting.graduation,
+                        "postgraduation":jobposting.postgraduation,
+                        "location": jobposting.location,
+                        "role_category": jobposting.role_category,
+                        "department": jobposting.department,
+                        "experience": jobposting.experience,
+                        "required_skills": jobposting.required_skills,
+                        "prefered_skills": jobposting.prefered_skills,
+                        "employment_type": jobposting.employment_type,
+                        "openings": jobposting.openings,
+                        "recruiter_id": jobposting.recruiter_id
+                    })
+            return successWithData(msg=f"{title} jobs", data=result)
+            
+        else:
+            return fail(msg="sorry, but there is no any jobs are available!")
+
+    except Exception as e:
+        return fail(msg=str(e))
+@jobposting_bp.route("/recommend", methods=['POST'])
+def recommend_job():
+    try:
+        messages = request.get_json()
+        tools = [
+         {
+                "type": "function",
+                "function": {
+                    "name": "send_recommended_job_posts",
+                    "description": "ask for the skills that user have to recommend the job posts so that he/she can get job.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "skills": {
+                                "type": "string",
+                                "description": "skills that user have.",
+                            },
+                        },
+                        "required": ["skills"],
+                    },
+                },
+            },
+        ]
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo-1106",
+            messages=messages,
+            tools=tools,
+            tool_choice="auto", 
+        )
+        response_message = response.choices[0].message
+        tool_calls = response_message.tool_calls
+        if tool_calls:
+            available_functions = {
+                "send_recommended_job_posts": send_recommended_job_posts,
+            } 
+            messages.append(response_message)  
+            for tool_call in tool_calls:
+                function_name = tool_call.function.name
+                function_to_call = available_functions[function_name]
+                function_args = json.loads(tool_call.function.arguments)
+                function_response = function_to_call(
+                    skills=function_args.get("skills"),
+                )
+                messages.append(
+                    {
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": function_name,
+                        "content": str(function_response),
+                    }
+                )  
+            second_response = client.chat.completions.create(
+                model="gpt-3.5-turbo-1106",
+                messages=messages,
+            ) 
+            # result = []  
+            # for each in second_response.choices:
+            #     result.append(serialize_choice(each))
+            
+           
+            modified_data = {
+                "content": second_response.choices[0].message.content,
+                "role": second_response.choices[0].message.role
+            }
+           
+            return successWithData(msg="second_output", data=modified_data)
+        else:
+            result = {
+                 "content": response_message.content,
+                 "role": response_message.role
+            }  
+            return successWithData(msg="first_output", data=result)
+    except Exception as e:
+        return fail(str(e))

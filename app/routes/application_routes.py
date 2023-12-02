@@ -1,6 +1,9 @@
 from flask import Blueprint,  request
-from app.models import Application,JobSeeker,JobPosting, db
+from app.models import Application,JobSeeker,JobPosting, SkillSet, db
 from app import success, fail, successWithData
+from openai import OpenAI
+import os, json
+
 application_bp = Blueprint('application', __name__)
 
 # apply on job post
@@ -162,3 +165,119 @@ def delete_application(id):
 
     except Exception as e:
         return fail(str(e)), 401
+
+
+openai_api_key = os.getenv("API_KEY") 
+client = OpenAI(api_key=openai_api_key)
+
+
+# recommend applicant
+def recommend_job_seeker(jobpostid):
+    try:
+        print("recommend job post id",jobpostid)
+        jobpostid = int(jobpostid)
+        jobpost = JobPosting.query.filter_by(id=jobpostid).first()
+        
+        desired_skills =[
+             jobpost.required_skills.strip(",")
+        ]
+      
+        recommended_jobseekers = JobSeeker.query.filter(
+            (JobSeeker.skills.any(SkillSet.skills.in_(desired_skills)))).all()
+        result = []
+        print('recommended_jobseekers', recommended_jobseekers)
+        for each in recommended_jobseekers:
+            user_skills = [skill.skills for skill in each.skills]
+            user_graduate = [degree.degree for degree in each.graduate]
+            user_postgraduate = [degree.degree for degree in each.postgraduate]
+            result.append({
+                "id": each.id,
+                "name": each.name,
+                "email": each.email,
+                "graduate": user_graduate,
+                "postgraduate": user_postgraduate,
+                "education": each.education,
+                "skills": user_skills,
+                "experience": each.experience,
+                "city": each.city,
+                "state": each.state,
+                'pincode': each.pincode
+
+            })
+        print(result)
+        return result
+    except Exception as e:
+        return str(e)
+
+
+@application_bp.route("/recommend", methods=['POST'])
+def recommend_applicant():
+    try:
+        messages = request.get_json()
+        tools = [
+         {
+                "type": "function",
+                "function": {
+                    "name": "recommend_job_seeker",
+                    "description": "recommend the jobseeker(applicant) who have all the required skills according to the job post. so ask for job post id to access the job post.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "jobpostid": {
+                                "type": "number",
+                                "description": "job post id which is number",
+                            },
+                        },
+                        "required": ["jobpostid"],
+                    },
+                },
+            },
+        ]
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo-1106",
+            messages=messages,
+            tools=tools,
+            tool_choice="auto", 
+        )
+        response_message = response.choices[0].message
+        tool_calls = response_message.tool_calls
+        if tool_calls:
+            available_functions = {
+                "recommend_job_seeker": recommend_job_seeker,
+            } 
+            messages.append(response_message)  
+            for tool_call in tool_calls:
+                function_name = tool_call.function.name
+                function_to_call = available_functions[function_name]
+                function_args = json.loads(tool_call.function.arguments)
+                function_response = function_to_call(
+                    jobpostid=function_args.get("jobpostid"),
+                )
+                messages.append(
+                    {
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": function_name,
+                        "content": str(function_response),
+                    }
+                )  
+            second_response = client.chat.completions.create(
+                model="gpt-3.5-turbo-1106",
+                messages=messages,
+            ) 
+            
+           
+            modified_data = {
+                "content": second_response.choices[0].message.content,
+                "role": second_response.choices[0].message.role
+            }
+           
+            return successWithData(msg="second_output", data=modified_data)
+        else:
+            result = {
+                 "content": response_message.content,
+                 "role": response_message.role
+            }  
+            return successWithData(msg="first_output", data=result)
+    except Exception as e:
+        return fail(str(e))
