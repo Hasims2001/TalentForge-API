@@ -20,7 +20,7 @@ from app.models import SkillSet, JobSeeker, Recruiter, JobPosting, Application, 
 with app.app_context():
     db.create_all()
 
-CORS(app, origins="http://localhost:3000")
+CORS(app)
 
 def success(msg):
     return jsonify({'issue': False, 'message': msg})
