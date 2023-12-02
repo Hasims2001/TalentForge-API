@@ -15,7 +15,5 @@ if __name__ == "__main__":
 # |   |   |-- jobposting_routes.py
 # |   |   |-- application_routes.py
 # |   |   |-- skillset_routes.py
-# |-- migrations/
 # |-- venv/
-# |-- config.py
 # |-- run.py
