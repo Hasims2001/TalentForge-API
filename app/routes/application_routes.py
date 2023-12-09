@@ -177,35 +177,37 @@ def recommend_job_seeker(jobpostid):
         print("recommend job post id",jobpostid)
         jobpostid = int(jobpostid)
         jobpost = JobPosting.query.filter_by(id=jobpostid).first()
+        if(jobpost):
+            desired_skills =[
+                jobpost.required_skills.strip(",")
+            ]
         
-        desired_skills =[
-             jobpost.required_skills.strip(",")
-        ]
-      
-        recommended_jobseekers = JobSeeker.query.filter(
-            (JobSeeker.skills.any(SkillSet.skills.in_(desired_skills)))).all()
-        result = []
-        print('recommended_jobseekers', recommended_jobseekers)
-        for each in recommended_jobseekers:
-            user_skills = [skill.skills for skill in each.skills]
-            user_graduate = [degree.degree for degree in each.graduate]
-            user_postgraduate = [degree.degree for degree in each.postgraduate]
-            result.append({
-                "id": each.id,
-                "name": each.name,
-                "email": each.email,
-                "graduate": user_graduate,
-                "postgraduate": user_postgraduate,
-                "education": each.education,
-                "skills": user_skills,
-                "experience": each.experience,
-                "city": each.city,
-                "state": each.state,
-                'pincode': each.pincode
+            recommended_jobseekers = JobSeeker.query.filter(
+                (JobSeeker.skills.any(SkillSet.skills.in_(desired_skills)))).all()
+            result = []
+            print('recommended_jobseekers', recommended_jobseekers)
+            for each in recommended_jobseekers:
+                user_skills = [skill.skills for skill in each.skills]
+                user_graduate = [degree.degree for degree in each.graduate]
+                user_postgraduate = [degree.degree for degree in each.postgraduate]
+                result.append({
+                    "id": each.id,
+                    "name": each.name,
+                    "email": each.email,
+                    "graduate": user_graduate,
+                    "postgraduate": user_postgraduate,
+                    "education": each.education,
+                    "skills": user_skills,
+                    "experience": each.experience,
+                    "city": each.city,
+                    "state": each.state,
+                    'pincode': each.pincode
 
-            })
-        print(result)
-        return result
+                })
+            print(result)
+            return result
+        else:
+            return "no job posts found!"
     except Exception as e:
         return str(e)
 
@@ -219,13 +221,13 @@ def recommend_applicant():
                 "type": "function",
                 "function": {
                     "name": "recommend_job_seeker",
-                    "description": "recommend the jobseeker(applicant) who have all the required skills according to the job post. so ask for job post id to access the job post.",
+                    "description": "Recommend applicant using job post id",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "jobpostid": {
                                 "type": "number",
-                                "description": "job post id which is number",
+                                "description": "job post id number",
                             },
                         },
                         "required": ["jobpostid"],
@@ -261,18 +263,23 @@ def recommend_applicant():
                         "content": str(function_response),
                     }
                 )  
-            second_response = client.chat.completions.create(
-                model="gpt-3.5-turbo-1106",
-                messages=messages,
-            ) 
+            # second_response = client.chat.completions.create(
+            #     model="gpt-3.5-turbo-1106",
+            #     messages=messages,
+            # ) 
             
            
             modified_data = {
-                "content": second_response.choices[0].message.content,
-                "role": second_response.choices[0].message.role
+                "content": function_response,
+                "role": "system"
             }
            
-            return successWithData(msg="second_output", data=modified_data)
+            if(type(function_response) == list and len(function_response) > 0):
+                return successWithData(msg="here is the some recommendation according to job requirements:", data=modified_data)
+            elif(type(function_response) == list):
+                return successWithData(msg="sorry, there is no jobseeker available who fullfill your requirements!", data=modified_data)
+            else:
+                return successWithData(msg="first_output", data=modified_data)
         else:
             result = {
                  "content": response_message.content,

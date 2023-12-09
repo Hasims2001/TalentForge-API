@@ -234,7 +234,6 @@ def send_recommended_job_posts(skills):
         temp.append(each.strip())
     skills =  temp
 
-    print("skills",skills)
     try:
        
         recommended_jobpostings = JobPosting.query.filter(or_(*[JobPosting.required_skills.like(f"%{skill}%") for skill in skills])).all()
@@ -311,6 +310,7 @@ def getJobByTitle(title):
 
     except Exception as e:
         return fail(msg=str(e))
+
 @jobposting_bp.route("/recommend", methods=['POST'])
 def recommend_job():
     try:
@@ -320,13 +320,13 @@ def recommend_job():
                 "type": "function",
                 "function": {
                     "name": "send_recommended_job_posts",
-                    "description": "ask for the skills that user have to recommend the job posts so that he/she can get job.",
+                    "description": "Recommend job posts using skills",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "skills": {
                                 "type": "string",
-                                "description": "skills that user have.",
+                                "description": "multiple skills in string",
                             },
                         },
                         "required": ["skills"],
@@ -362,21 +362,20 @@ def recommend_job():
                         "content": str(function_response),
                     }
                 )  
-            second_response = client.chat.completions.create(
-                model="gpt-3.5-turbo-1106",
-                messages=messages,
-            ) 
-            # result = []  
-            # for each in second_response.choices:
-            #     result.append(serialize_choice(each))
-            
-           
+            # second_response = client.chat.completions.create(
+            #     model="gpt-3.5-turbo-1106",
+            #     messages=messages,
+            # ) 
+          
             modified_data = {
-                "content": second_response.choices[0].message.content,
-                "role": second_response.choices[0].message.role
+                "content": function_response,
+                "role": "system"
             }
            
-            return successWithData(msg="second_output", data=modified_data)
+            if(type(function_response) == list):
+                return successWithData(msg="here is the some recommendation according to your skills:", data=modified_data)
+            else:
+                return successWithData(msg="first_output", data=modified_data)
         else:
             result = {
                  "content": response_message.content,
